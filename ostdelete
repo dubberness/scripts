@@ -1,0 +1,15 @@
+$users = Get-ChildItem c:\users
+$Age = $env.ostage
+
+foreach ($user in $users) {
+    $folder = "C:\users\" + $user + "\AppData\Local\Microsoft\Outlook" 
+    $folderpath = test-path -Path $folder
+
+    if ($folderpath) {
+        Get-ChildItem $folder -filter *.ost | where-object { ($_.LastWriteTime -lt (Get-Date).AddDays($Age)) } | remove-item
+        Write-Output "Deleted OST file for $user"
+    }
+    else {
+        Write-Output "OST file doesn't exist or meet criteria for $user"
+    }
+}
