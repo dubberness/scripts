@@ -56,11 +56,15 @@ function Write-Log{
 $AgeDate = (Get-Date).AddDays(-$Age)
 $AgeMaxThreshold = (Get-Date).AddYears(-5)
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
-# Only match on-prem domain users.
 $DomainProfiles = Get-ChildItem "$ProfilePath"
-# Crazy thought, what if a user is logged in at time of script execution but still meets the criteria of Age. Lets get those users and exclude them from the purge.
 $LoggedOnUsers = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | Invoke-CimMethod -MethodName GetOwner -ErrorAction SilentlyContinue | Select-Object -ExpandProperty User -Unique
 $WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
+
+Write-Host "Found the following Profiles:"
+$DomainProfiles | ForEach-Object {
+    $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
+    Write-Host "Profile: $($profileInfo.ProfileImagePath)"
+}
 
 foreach($Profile in $DomainProfiles){
     Write-Log -Entry "Processing profile: $($Profile.PSChildName)" -EntryType 1
