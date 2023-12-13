@@ -63,8 +63,31 @@ $WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
 Write-Host "Found the following Profiles:"
 $DomainProfiles | ForEach-Object {
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
+    $NTLogonEpoch = $null
+    $LastLogOn = $null
+    $NTLogoffEpoch = $null
+    $LastLogOff = $null
+    
+    if($profileInfo.LocalProfileLoadTimeHigh -and $profileInfo.LocalProfileLoadTimeLow){
+        [long]$NTLogonEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileLoadTimeHigh, $profileInfo.LocalProfileLoadTimeLow
+        $LastLogOn = ([System.DateTimeOffset]::FromFileTime($NTLogonEpoch)).DateTime
+    }
+
+    if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
+        [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
+        $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
+    }
+
+    # Modification: Calculate age and display it
+    $CurrentDate = Get-Date
+    $LogonAgeDays = ($CurrentDate - $LastLogOn).Days
+    $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
+
     Write-Host "Profile: $($profileInfo.ProfileImagePath)"
+    Write-Host "Last Logon Age: $($LogonAgeDays) days"
+    Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
 }
+
 
 foreach($Profile in $DomainProfiles){
     Write-Log -Entry "Processing profile: $($Profile.PSChildName)" -EntryType 1
