@@ -7,6 +7,9 @@
     PS> Remove-Profiles.ps1 -Age 30
     A value of 30 would mean any profiles that haven't been used in over 30 days will be deleted.
 #>
+
+#Ben is cool
+
 param(
     [uint32]$Age = $env:profileage
 )
