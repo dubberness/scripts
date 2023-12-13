@@ -100,6 +100,7 @@ $DomainProfiles | ForEach-Object {
 
 
 foreach($Profile in $DomainProfiles){
+    Write-Host "'n Deleting profiles:"
     Write-Log -Entry "Processing profile: $($Profile.PSChildName)" -EntryType 1
     $NTLogonEpoch = $null
     $LastLogOn = $null
