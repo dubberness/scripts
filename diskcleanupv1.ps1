@@ -63,6 +63,15 @@ $WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
 Write-Host "Found the following Profiles:"
 $DomainProfiles | ForEach-Object {
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
+    
+    # Modification: Check if the profile is a system profile
+    $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
+    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService'){
+        Write-Host "Skipping system profile: $ProfileName"
+        return
+    }
+
+    # Original code to calculate LastLogOn and LastLogOff
     $NTLogonEpoch = $null
     $LastLogOn = $null
     $NTLogoffEpoch = $null
@@ -78,7 +87,7 @@ $DomainProfiles | ForEach-Object {
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    # Modification: Calculate age and display it
+    # Modification: Print profile details excluding system profiles
     $CurrentDate = Get-Date
     $LogonAgeDays = ($CurrentDate - $LastLogOn).Days
     $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
@@ -87,6 +96,7 @@ $DomainProfiles | ForEach-Object {
     Write-Host "Last Logon Age: $($LogonAgeDays) days"
     Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
 }
+
 
 
 foreach($Profile in $DomainProfiles){
@@ -98,6 +108,13 @@ foreach($Profile in $DomainProfiles){
     $Delete = $null
     $Keep = $false
     $ProfileValues = Get-ItemProperty "$ProfilePath\$($Profile.PSChildName)"
+
+    $ProfileName = [System.IO.Path]::GetFileName($ProfileValues.ProfileImagePath)
+    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService'){
+        Write-Host "Skipping system profile: $ProfileName"
+        continue
+    }
+
     if(($ProfileValues.LocalProfileLoadTimeHigh) -and ($ProfileValues.LocalProfileLoadTimeLow)){
         [long]$NTLogonEpoch = "0x{0:X}{1:X}" -f $ProfileValues.LocalProfileLoadTimeHigh, $ProfileValues.LocalProfileLoadTimeLow
         $LastLogOn = ([System.DateTimeOffset]::FromFileTime($NTLogonEpoch)).DateTime
