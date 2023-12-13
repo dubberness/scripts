@@ -63,6 +63,7 @@ $LoggedOnUsers = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'
 $WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
 
 foreach($Profile in $DomainProfiles){
+    Write-Log -Entry "Processing profile: $($Profile.PSChildName)" -EntryType 1
     $NTLogonEpoch = $null
     $LastLogOn = $null
     $NTLogoffEpoch = $null
@@ -124,6 +125,7 @@ ProfileImagePath: $($ProfileValues.ProfileImagePath)
             Write-Log -Entry "$Output" -EntryType 3
         } else{
             Write-Log -Entry "$Output" -EntryType 1
+            Write-Host "Successfully removed profile for $UserID"
         }
     }
 }
