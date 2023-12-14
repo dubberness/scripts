@@ -1,9 +1,16 @@
 param(
     [uint32]$Age = $env:profileage,
-    [bool]$ReadOnlyMode = $env.readyonly
+    [bool]$ReadOnlyMode
 )
 
-#Welcome the user
+# Determine the value of $ReadOnlyMode based on the environment variable
+try {
+    $ReadOnlyMode = [System.Convert]::ToBoolean($env:readonly)
+} catch {
+    $ReadOnlyMode = $false
+}
+
+# Welcome the user
 Write-Host "`nHello friend! Welcome to Ben's disk cleanup script :)`n"
 
 # Notify if running in read-only mode
