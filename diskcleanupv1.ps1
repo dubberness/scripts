@@ -27,11 +27,31 @@ $ComputerProfiles | ForEach-Object {
     }
 }
 
+# Function to safely delete a user profile
+function Remove-UserProfile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProfilePath
+    )
+
+    try {
+        # Attempt to remove the user profile
+        Remove-Item -Path $ProfilePath -Recurse -Force
+        Write-Host "Successfully deleted profile at: $ProfilePath"
+    } catch {
+        # Output an error message if the deletion fails
+        Write-Host "Error deleting profile at: $ProfilePath. Error: $_"
+    }
+}
+
 # Separately list profiles that will be deleted
-Write-Host "`nProfiles Planned for Deletion:"
+Write-Host "`nInitiating Profile Deletion Process..."
+$ProfilesToDelete = @()
+
 $ComputerProfiles | ForEach-Object {
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
+    $ProfileFolderPath = $profileInfo.ProfileImagePath
 
     # Skip system and service profiles silently
     if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service'){
@@ -46,13 +66,22 @@ $ComputerProfiles | ForEach-Object {
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    # Calculate logoff age and list profiles for deletion
+    # Calculate logoff age and add profiles for deletion
     if($LastLogOff -and $LastLogOff -ne [datetime]::MinValue){
         $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
 
-        # List profile if logoff age is more than 0 days
-        if($LogoffAgeDays -gt 0){
-            Write-Host "  Profile: $ProfileName (Last Logoff: $LastLogOff)"
+        # Add profile to deletion list if logoff age is more than the set threshold
+        if($LogoffAgeDays -gt $Age){
+            $ProfilesToDelete += $ProfileFolderPath
+            Write-Host "Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
         }
     }
 }
+
+# Delete the profiles marked for deletion
+foreach ($Profile in $ProfilesToDelete) {
+    Write-Host "Deleting profile: $Profile"
+    Remove-UserProfile -ProfilePath $Profile
+}
+
+Write-Host "`nProfile Deletion Process Completed."
