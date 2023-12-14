@@ -20,9 +20,23 @@ $ComputerProfiles | ForEach-Object {
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
 
     if(-not ($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service')){
-        Write-Host "  Profile: $ProfileName"
+        # Calculate LastLogOff time
+        $NTLogoffEpoch = $null
+        $LastLogOff = $null
+        if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
+            [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
+            $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
+        }
+
+        # Display profile name and last logoff time
+        if($LastLogOff -and $LastLogOff -ne [datetime]::MinValue){
+            Write-Host "  Profile: $ProfileName (Last Logoff: $LastLogOff)"
+        } else {
+            Write-Host "  Profile: $ProfileName (Last Logoff: Unknown)"
+        }
     }
 }
+
 
 # Function to safely delete a user profile
 function Remove-UserProfile {
