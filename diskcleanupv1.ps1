@@ -37,7 +37,6 @@ $ComputerProfiles | ForEach-Object {
     }
 }
 
-
 # Function to safely delete a user profile
 function Remove-UserProfile {
     param(
