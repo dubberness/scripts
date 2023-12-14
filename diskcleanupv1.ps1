@@ -72,33 +72,31 @@ $ComputerProfiles | ForEach-Object {
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
     $ProfileFolderPath = $profileInfo.ProfileImagePath
 
-    # Check and skip system and service profiles
-    if ($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service') {
-        Write-Host "Skipping system/service profile: $ProfileName"
-        return
-    }
-
-    # Check and skip currently logged-on user profiles
-    if ($LoggedOnUserPaths -contains $ProfileFolderPath) {
-        Write-Host "Profile $ProfileName is currently logged on and will not be deleted."
+    # Skip system, service, and currently logged-on user profiles
+    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service' -or $LoggedOnUserPaths -contains $ProfileFolderPath){
+        if($LoggedOnUserPaths -contains $ProfileFolderPath) {
+            Write-Host "Profile $ProfileName is currently logged on and will not be deleted."
+        }
         return
     }
 
     # Calculate LastLogOff time and logoff age
     $NTLogoffEpoch = $null
     $LastLogOff = $null
-    if ($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow) {
+    if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
         [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    # Determine if the profile is eligible for deletion based on age
-    $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
-    if ($LastLogOff -and $LastLogOff -ne [datetime]::MinValue -and $LogoffAgeDays -gt $Age) {
-        $ProfilesToDelete += $ProfileFolderPath
-        Write-Host "Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
-    } else {
-        Write-Host "Profile $ProfileName not deleted: Age is $LogoffAgeDays days or Last Logoff is Unknown"
+    if($LastLogOff -and $LastLogOff -ne [datetime]::MinValue){
+        $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
+
+        if($LogoffAgeDays -gt $Age){
+            $ProfilesToDelete += $ProfileFolderPath
+            Write-Host "Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
+        } else {
+            Write-Host "Profile $ProfileName not deleted: Age is $LogoffAgeDays days"
+        }
     }
 }
 
