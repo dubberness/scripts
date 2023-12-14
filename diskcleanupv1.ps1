@@ -16,13 +16,14 @@ $CurrentDate = Get-Date
 # Start of profile analysis
 Write-Host "Found the following Profiles:"
 
+# Iterate over each profile
 $ComputerProfiles | ForEach-Object {
     # Retrieve profile information
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
 
-    # Skip system profiles silently
-    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService'){
+    # Skip system and service profiles silently
+    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service'){
         return
     }
 
@@ -34,12 +35,22 @@ $ComputerProfiles | ForEach-Object {
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    # Calculate logoff age
-    $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
+    # Check if $LastLogOff is a valid date and calculate logoff age
+    $LogoffAgeDays = $null
+    if($LastLogOff -and $LastLogOff -ne [datetime]::MinValue){
+        $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
+    }
 
-    # Output profile details
-    Write-Host "Profile: $($profileInfo.ProfileImagePath)"
-    Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
+    # Skip profiles with a logoff age of 0 days
+    if($LogoffAgeDays -eq 0){
+        return
+    }
+
+    # Output profile details if above conditions are not met
+    if($LastLogOff){
+        Write-Host "Profile: $($profileInfo.ProfileImagePath)"
+        Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
+    }
 }
 
 Write-Host "`n Deleting profiles:"
