@@ -8,50 +8,43 @@ Write-Host "Hello friend! Welcome to Ben's disk cleanup script :)`n"
 $AgeDate = (Get-Date).AddDays(-$Age)
 $AgeMaxThreshold = (Get-Date).AddYears(-5)
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
-$DomainProfiles = Get-ChildItem "$ProfilePath"
+$ComputerProfiles = Get-ChildItem "$ProfilePath"
 $LoggedOnUsers = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | Invoke-CimMethod -MethodName GetOwner -ErrorAction SilentlyContinue | Select-Object -ExpandProperty User -Unique
 $WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
+$CurrentDate = Get-Date
 
+# Start of profile analysis
 Write-Host "Found the following Profiles:"
-$DomainProfiles | ForEach-Object {
+
+$ComputerProfiles | ForEach-Object {
+    # Retrieve profile information
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
-    
-    # Check if the profile is a system profile
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
+
+    # Skip system profiles silently
     if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService'){
-        Write-Host "Skipping system profile: $ProfileName"
         return
     }
 
-    #Calculate LastLogOn and LastLogOff
-    $NTLogonEpoch = $null
-    $LastLogOn = $null
+    # Calculate LastLogOff time
     $NTLogoffEpoch = $null
     $LastLogOff = $null
-    
-    if($profileInfo.LocalProfileLoadTimeHigh -and $profileInfo.LocalProfileLoadTimeLow){
-        [long]$NTLogonEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileLoadTimeHigh, $profileInfo.LocalProfileLoadTimeLow
-        $LastLogOn = ([System.DateTimeOffset]::FromFileTime($NTLogonEpoch)).DateTime
-    }
-
     if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
         [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    #Print profile details excluding system profiles
-    $CurrentDate = Get-Date
-    $LogonAgeDays = ($CurrentDate - $LastLogOn).Days
+    # Calculate logoff age
     $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
 
+    # Output profile details
     Write-Host "Profile: $($profileInfo.ProfileImagePath)"
-    Write-Host "Last Logon Age: $($LogonAgeDays) days"
     Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
 }
 
 Write-Host "`n Deleting profiles:"
 
-foreach($Profile in $DomainProfiles){
+foreach($Profile in $ComputerProfiles){
     $NTLogonEpoch = $null
     $LastLogOn = $null
     $NTLogoffEpoch = $null
@@ -90,7 +83,7 @@ foreach($Profile in $DomainProfiles){
         $objSID = New-Object System.Security.Principal.SecurityIdentifier("$($Profile.PSChildName)")
         $UserID = $objSID.Translate([System.Security.Principal.NTAccount])
     } catch [System.Management.Automation.MethodInvocationException]{
-        Write-Log -Entry "$($Profile.PSChildName) does not exist for profile $($ProfileValues.ProfileImagePath)" -EntryType 2
+        Write-Host -Entry "$($Profile.PSChildName) does not exist for profile $($ProfileValues.ProfileImagePath)" -EntryType 2
         $UserID = 'Unknown'
     }
     if(!$Delete -and !$Keep -and ($WinInstallDate -lt $AgeDate)){
