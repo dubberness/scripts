@@ -7,8 +7,17 @@ Write-Host "`nHello friend! Welcome to Ben's disk cleanup script :)`n"
 
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 $ComputerProfiles = Get-ChildItem "$ProfilePath"
-$LoggedOnUsers = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | Invoke-CimMethod -MethodName GetOwner -ErrorAction SilentlyContinue | Select-Object -ExpandProperty User -Unique
 $CurrentDate = Get-Date
+
+# Get the profile path for logged-on users
+$LoggedOnUserPaths = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | 
+    ForEach-Object {
+        $owner = $_ | Invoke-CimMethod -MethodName GetOwner -ErrorAction SilentlyContinue
+        if ($owner) {
+            (Get-WmiObject -Class Win32_UserProfile | Where-Object { $_.SID -eq (New-Object System.Security.Principal.NTAccount($owner.Domain, $owner.User)).Translate([System.Security.Principal.SecurityIdentifier]).Value }).LocalPath
+        }
+    } | Where-Object { $_ } | Select-Object -Unique
+
 
 # Start of profile analysis
 Write-Host "Scanning for Profiles...`n"
@@ -64,8 +73,8 @@ $ComputerProfiles | ForEach-Object {
     $ProfileFolderPath = $profileInfo.ProfileImagePath
 
     # Skip system, service, and currently logged-on user profiles
-    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service' -or $LoggedOnUsers -contains $ProfileName){
-        if($LoggedOnUsers -contains $ProfileName) {
+    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service' -or $LoggedOnUserPaths -contains $ProfileFolderPath){
+        if($LoggedOnUserPaths -contains $ProfileFolderPath) {
             Write-Host "Profile $ProfileName is currently logged on and will not be deleted."
         }
         return
