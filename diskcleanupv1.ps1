@@ -3,7 +3,7 @@ param(
 )
 
 #Welcome the user
-Write-Host "Hello friend! Welcome to Ben's disk cleanup script :)`n"
+Write-Host "`nHello friend! Welcome to Ben's disk cleanup script :)`n"
 
 $AgeDate = (Get-Date).AddDays(-$Age)
 $AgeMaxThreshold = (Get-Date).AddYears(-5)
@@ -45,7 +45,7 @@ function Remove-UserProfile {
 }
 
 # Separately list profiles that will be deleted
-Write-Host "`nInitiating Profile Deletion Process..."
+Write-Host "`nInitiating Profile Deletion Process...`n"
 $ProfilesToDelete = @()
 
 $ComputerProfiles | ForEach-Object {
