@@ -46,8 +46,9 @@ $DomainProfiles | ForEach-Object {
     Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
 }
 
+Write-Host "`n Deleting profiles:"
+
 foreach($Profile in $DomainProfiles){
-    Write-Host "'n Deleting profiles:"
     $NTLogonEpoch = $null
     $LastLogOn = $null
     $NTLogoffEpoch = $null
