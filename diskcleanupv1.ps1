@@ -1,13 +1,3 @@
-<# 
-    .SYNOPSIS  
-    Remove unused User Profiles.
-    .PARAMETER Age
-    Age in days since last logon/logoff, the default is 90.
-    .EXAMPLE
-    PS> Remove-Profiles.ps1 -Age 30
-    A value of 30 would mean any profiles that haven't been used in over 30 days will be deleted.
-#>
-
 param(
     [uint32]$Age = $env:profileage
 )
@@ -23,14 +13,14 @@ Write-Host "Found the following Profiles:"
 $DomainProfiles | ForEach-Object {
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
     
-    # Modification: Check if the profile is a system profile
+    # Check if the profile is a system profile
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
     if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService'){
         Write-Host "Skipping system profile: $ProfileName"
         return
     }
 
-    # Original code to calculate LastLogOn and LastLogOff
+    #Calculate LastLogOn and LastLogOff
     $NTLogonEpoch = $null
     $LastLogOn = $null
     $NTLogoffEpoch = $null
@@ -46,7 +36,7 @@ $DomainProfiles | ForEach-Object {
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    # Modification: Print profile details excluding system profiles
+    #Print profile details excluding system profiles
     $CurrentDate = Get-Date
     $LogonAgeDays = ($CurrentDate - $LastLogOn).Days
     $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
