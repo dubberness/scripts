@@ -66,12 +66,12 @@ $ComputerProfiles | ForEach-Object {
     # Skip system, service, and currently logged-on user profiles
     if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service' -or $LoggedOnUsers -contains $ProfileName){
         if($LoggedOnUsers -contains $ProfileName) {
-            Write-Host "Profile $ProfileName is currently logged on."
+            Write-Host "Profile $ProfileName is currently logged on and will not be deleted."
         }
         return
     }
 
-    # Calculate LastLogOff time
+    # Calculate LastLogOff time and logoff age
     $NTLogoffEpoch = $null
     $LastLogOff = $null
     if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
@@ -79,14 +79,14 @@ $ComputerProfiles | ForEach-Object {
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     }
 
-    # Calculate logoff age and add profiles for deletion
     if($LastLogOff -and $LastLogOff -ne [datetime]::MinValue){
         $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
 
-        # Add profile to deletion list if logoff age is more than the set threshold
         if($LogoffAgeDays -gt $Age){
             $ProfilesToDelete += $ProfileFolderPath
             Write-Host "Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
+        } else {
+            Write-Host "Profile $ProfileName not deleted: Age is $LogoffAgeDays days"
         }
     }
 }
