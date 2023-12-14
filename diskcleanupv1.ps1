@@ -77,7 +77,7 @@ function Remove-UserProfile {
 }
 
 # Separately list profiles that will be deleted
-Write-Host "`nInitiating Profile Deletion Process...`n"
+Write-Host "`nInitiating Profile Deletion Process..."
 $ProfilesToDelete = @()
 
 $ComputerProfiles | ForEach-Object {
@@ -88,7 +88,7 @@ $ComputerProfiles | ForEach-Object {
     # Skip system, service, and currently logged-on user profiles
     if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service' -or $LoggedOnUserPaths -contains $ProfileFolderPath){
         if($LoggedOnUserPaths -contains $ProfileFolderPath) {
-            Write-Host "Profile $ProfileName is currently logged on and will not be deleted."
+            Write-Host "  Profile $ProfileName is currently logged on and will not be deleted."
         }
         return
     }
@@ -106,9 +106,9 @@ $ComputerProfiles | ForEach-Object {
 
         if($LogoffAgeDays -gt $Age){
             $ProfilesToDelete += $ProfileFolderPath
-            Write-Host "Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
+            Write-Host "  Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
         } else {
-            Write-Host "Profile $ProfileName not deleted: Age is $LogoffAgeDays days"
+            Write-Host "  Profile $ProfileName not deleted: Age is $LogoffAgeDays days"
         }
     }
 }
