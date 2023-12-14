@@ -52,7 +52,7 @@ $ComputerProfiles | ForEach-Object {
 
         # Display profile name and last logoff time
         if($LastLogOff -and $LastLogOff -ne [datetime]::MinValue){
-            Write-Host "  Profile: $ProfileName (Last Logoff: $LastLogOff)"
+            Write-Host "  Profile: $ProfileName (Last Logoff: $($LastLogOff.ToString('dd/MM/yyyy HH:mm:ss')))"
         } else {
             Write-Host "  Profile: $ProfileName (Last Logoff: Unknown)"
         }
