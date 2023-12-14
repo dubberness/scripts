@@ -1,9 +1,15 @@
 param(
-    [uint32]$Age = $env:profileage
+    [uint32]$Age = $env:profileage,
+    [bool]$ReadOnlyMode = $env.readyonly
 )
 
 #Welcome the user
 Write-Host "`nHello friend! Welcome to Ben's disk cleanup script :)`n"
+
+# Notify if running in read-only mode
+if ($ReadOnlyMode) {
+    Write-Host "RUNNING IN READ ONLY MODE - No changes will be made to the system"
+}
 
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 $ComputerProfiles = Get-ChildItem "$ProfilePath"
@@ -101,13 +107,21 @@ $ComputerProfiles | ForEach-Object {
 }
 
 # Delete the profiles marked for deletion
-foreach ($Profile in $ProfilesToDelete) {
-    Write-Host "Deleting profile: $Profile"
-    Remove-UserProfile -ProfilePath $Profile
+if (-not $ReadOnlyMode) {
+    foreach ($Profile in $ProfilesToDelete) {
+        Write-Host "Deleting profile: $Profile"
+        Remove-UserProfile -ProfilePath $Profile
+    }
+} else {
+    foreach ($Profile in $ProfilesToDelete) {
+        Write-Host "Profile would be deleted in non-read-only mode: $Profile"
+    }
 }
 
 if ($ProfilesToDelete.Count -eq 0) {
     Write-Host "`nNo profiles were deleted.`n"
+} elseif ($ReadOnlyMode) {
+    Write-Host "`nNo profiles were deleted as script is running in read-only mode.`n"
 } else {
     Write-Host "`nProfile Deletion Process Completed.`n"
 }
