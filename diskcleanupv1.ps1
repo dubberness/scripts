@@ -5,12 +5,9 @@ param(
 #Welcome the user
 Write-Host "`nHello friend! Welcome to Ben's disk cleanup script :)`n"
 
-$AgeDate = (Get-Date).AddDays(-$Age)
-$AgeMaxThreshold = (Get-Date).AddYears(-5)
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 $ComputerProfiles = Get-ChildItem "$ProfilePath"
 $LoggedOnUsers = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | Invoke-CimMethod -MethodName GetOwner -ErrorAction SilentlyContinue | Select-Object -ExpandProperty User -Unique
-$WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
 $CurrentDate = Get-Date
 
 # Start of profile analysis
@@ -53,8 +50,11 @@ $ComputerProfiles | ForEach-Object {
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
     $ProfileFolderPath = $profileInfo.ProfileImagePath
 
-    # Skip system and service profiles silently
-    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service'){
+    # Skip system, service, and currently logged-on user profiles
+    if($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service' -or $LoggedOnUsers -contains $ProfileName){
+        if($LoggedOnUsers -contains $ProfileName) {
+            Write-Host "Profile $ProfileName is currently logged on."
+        }
         return
     }
 
