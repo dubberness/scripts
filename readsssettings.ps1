@@ -6,41 +6,54 @@ function Check-StorageSenseConfig {
         [string]$userProfilePath,
         [string]$userName
     )
-    
+
+    # Skip system accounts
+    $systemAccounts = @("NetworkService", "LocalService", "SystemProfile", "LocalSystem", "OVRLibraryService")
+    if ($userName -in $systemAccounts) {
+        Write-Host "Skipping system account: $userName"
+        return
+    }
+
     # Defining the registry path for the current user
     $storageSenseRegPath = "$userProfilePath\NTUSER.DAT"
     $regKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\StorageSense\Parameters\StoragePolicy"
 
-    # Load the user's registry hive
-    try {
-        REG LOAD HKU\TempUser $storageSenseRegPath | Out-Null
-    }
-    catch {
-        Write-Host "Unable to load registry hive for $userName"
-        return
-    }
+    # Check if the registry hive file exists and is accessible
+    if (Test-Path $storageSenseRegPath) {
+        # Load the user's registry hive
+        try {
+            REG LOAD HKU\TempUser $storageSenseRegPath | Out-Null
+        }
+        catch {
+            Write-Host "Unable to load registry hive for $userName. The user profile might be in use."
+            return
+        }
 
-    # Reading the settings
-    New-PSDrive -PSProvider Registry -Root HKEY_USERS -Name HKU -ErrorAction SilentlyContinue
-    if (Test-Path "HKU\TempUser\$regKey") {
-        Write-Host "Storage Sense settings for $userName;"
-        $settings = Get-ItemProperty -Path "HKU\TempUser\$regKey"
-        [PSCustomObject]@{
-            "Enable Storage Sense" = $settings."01"
-            "Run Interval" = $settings."2048"
-            "Delete Temp Files" = $settings."04"
-            "Delete Recycle Bin Content" = $settings."08"
-            "Delete Recycle Bin Interval" = $settings."256"
-            "Delete Downloads Content" = $settings."32"
-            "Delete Downloads Interval" = $settings."512"
-        } | Format-Table -AutoSize
+        # Reading the settings
+        New-PSDrive -PSProvider Registry -Root HKEY_USERS -Name HKU -ErrorAction SilentlyContinue
+        if (Test-Path "HKU\TempUser\$regKey") {
+            Write-Host "Storage Sense settings for $userName;"
+            $settings = Get-ItemProperty -Path "HKU\TempUser\$regKey"
+            [PSCustomObject]@{
+                "Enable Storage Sense" = $settings."01"
+                "Run Interval" = $settings."2048"
+                "Delete Temp Files" = $settings."04"
+                "Delete Recycle Bin Content" = $settings."08"
+                "Delete Recycle Bin Interval" = $settings."256"
+                "Delete Downloads Content" = $settings."32"
+                "Delete Downloads Interval" = $settings."512"
+            } | Format-Table -AutoSize
+        }
+        else {
+            Write-Host "Storage Sense is not configured for $userName"
+        }
+
+        # Unloading the user's registry hive
+        REG UNLOAD HKU\TempUser | Out-Null
     }
     else {
-        Write-Host "Storage Sense is not configured for $userName"
+        Write-Host "Registry hive not accessible for $userName. The user profile might be in use or does not exist."
     }
-
-    # Unloading the user's registry hive
-    REG UNLOAD HKU\TempUser | Out-Null
 }
 
 # Enumerate all user profiles
