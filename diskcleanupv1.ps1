@@ -113,6 +113,8 @@ $ComputerProfiles | ForEach-Object {
     }
 }
 
+Write-Host ""
+
 # Delete the profiles marked for deletion
 if (-not $ReadOnlyMode) {
     foreach ($Profile in $ProfilesToDelete) {
