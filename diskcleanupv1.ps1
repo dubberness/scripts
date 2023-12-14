@@ -85,7 +85,7 @@ foreach ($Profile in $ProfilesToDelete) {
 }
 
 if ($ProfilesToDelete.Count -eq 0) {
-    Write-Host "No profiles were deleted."
+    Write-Host "`nNo profiles were deleted.`n"
 } else {
-    Write-Host "`nProfile Deletion Process Completed."
+    Write-Host "`nProfile Deletion Process Completed.`n"
 }
