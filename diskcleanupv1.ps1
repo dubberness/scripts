@@ -2,6 +2,9 @@ param(
     [uint32]$Age = $env:profileage
 )
 
+#Welcome the user
+Write-Host "Hello friend! Welcome to Ben's disk cleanup script :)`n"
+
 $AgeDate = (Get-Date).AddDays(-$Age)
 $AgeMaxThreshold = (Get-Date).AddYears(-5)
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
