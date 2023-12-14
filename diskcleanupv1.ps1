@@ -106,7 +106,7 @@ $ComputerProfiles | ForEach-Object {
 
         if($LogoffAgeDays -gt $Age){
             $ProfilesToDelete += $ProfileFolderPath
-            Write-Host "  Profile marked for deletion: $ProfileName (Last Logoff: $LastLogOff)"
+            Write-Host "  Profile $ProfileName marked for deletion: Age is $LogoffAgeDays days"
         } else {
             Write-Host "  Profile $ProfileName not deleted: Age is $LogoffAgeDays days"
         }
