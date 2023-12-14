@@ -14,10 +14,10 @@ $WinInstallDate = (Get-CimInstance Win32_OperatingSystem).InstallDate
 $CurrentDate = Get-Date
 
 # Start of profile analysis
-Write-Host "Scanning for Profiles..."
+Write-Host "Scanning for Profiles...`n"
 
 # List all non-system profiles
-Write-Host "Non-System Profiles Found:"
+Write-Host "Profiles Found:"
 $ComputerProfiles | ForEach-Object {
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
@@ -84,4 +84,8 @@ foreach ($Profile in $ProfilesToDelete) {
     Remove-UserProfile -ProfilePath $Profile
 }
 
-Write-Host "`nProfile Deletion Process Completed."
+if ($ProfilesToDelete.Count -eq 0) {
+    Write-Host "No profiles were deleted."
+} else {
+    Write-Host "`nProfile Deletion Process Completed."
+}
