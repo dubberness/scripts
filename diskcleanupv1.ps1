@@ -12,45 +12,6 @@ param(
     [uint32]$Age = $env:profileage
 )
 
-$logSource = "ProfileCleanup" # Something like MyScript, but not MyScript.log
-$logPath = "$env:SystemRoot\Logs"
-# 1 = File, 2 = Event Viewer, 3 = Both
-$logTarget = 1
-function Write-Log{
-    param(
-        [Parameter(Mandatory)]
-        [string]$Entry,
-        # Defines colors in CMTrace
-        # 1 = Information, 2 = Warning, 3 = Error
-        [ValidateSet(1, 2, 3)]
-        [int]$EntryType = 1,
-        [int32]$EventId = 0,
-        [switch]$Raw
-    )
-    Switch($logTarget){
-        { $_ -band 1 }{
-            if($Raw){
-                Add-Content -Value $Entry -Path "$logPath\$logSource.log"
-            } else{
-                $TimeGenerated = "$(Get-Date -Format HH:mm:ss).$((Get-Date).Millisecond)+000"
-                $Line = '<![LOG[{0}]LOG]!><time="{1}" date="{2}" component="{3}" context="" type="{4}" thread="" file="">'
-                $LineFormat = $Entry, $TimeGenerated, (Get-Date -Format MM-dd-yyyy), "$($MyInvocation.ScriptName | Split-Path -Leaf):$($MyInvocation.ScriptLineNumber)", $EntryType
-                $Line = $Line -f $LineFormat
-                Add-Content -Value $Line -Path "$logPath\$logSource.log"
-            }
-        }
-        { $_ -band 2 }{
-            $EntryTypeName = switch($EntryType){
-                1 {'Information'}
-                2 {'Warning'}
-                3 {'Error'}
-            }
-            New-EventLog -LogName 'Application' -Source "$logSource" -ea SilentlyContinue
-            Write-EventLog -LogName 'Application' -Source "$logSource" -EventId $EventId -EntryType $EntryTypeName -Message "$Entry" -ea SilentlyContinue
-        }
-    }
-} #end function Write-Log
-
 $AgeDate = (Get-Date).AddDays(-$Age)
 $AgeMaxThreshold = (Get-Date).AddYears(-5)
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
@@ -95,11 +56,8 @@ $DomainProfiles | ForEach-Object {
     Write-Host "Last Logoff Age: $($LogoffAgeDays) days"
 }
 
-
-
 foreach($Profile in $DomainProfiles){
     Write-Host "'n Deleting profiles:"
-    Write-Log -Entry "Processing profile: $($Profile.PSChildName)" -EntryType 1
     $NTLogonEpoch = $null
     $LastLogOn = $null
     $NTLogoffEpoch = $null
@@ -113,7 +71,6 @@ foreach($Profile in $DomainProfiles){
         Write-Host "Skipping system profile: $ProfileName"
         continue
     }
-
     if(($ProfileValues.LocalProfileLoadTimeHigh) -and ($ProfileValues.LocalProfileLoadTimeLow)){
         [long]$NTLogonEpoch = "0x{0:X}{1:X}" -f $ProfileValues.LocalProfileLoadTimeHigh, $ProfileValues.LocalProfileLoadTimeLow
         $LastLogOn = ([System.DateTimeOffset]::FromFileTime($NTLogonEpoch)).DateTime
