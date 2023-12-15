@@ -12,14 +12,13 @@ try {
 
 # Function to get Disk Space
 function Get-DiskSpace {
-    $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq "C:\" } # Assuming C: is the target drive
+    $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq "C:\" }
     [PSCustomObject]@{
         TotalSizeGB = [math]::Round(($drive.Used + $drive.Free) / 1GB, 2)
         UsedSpaceGB = [math]::Round($drive.Used / 1GB, 2)
         FreeSpaceGB = [math]::Round($drive.Free / 1GB, 2)
     }
 }
-
 
 # Function to safely delete a user profile
 function Remove-UserProfile {
@@ -29,12 +28,37 @@ function Remove-UserProfile {
     )
 
     try {
-        # Attempt to remove the user profile
         Remove-Item -Path $ProfilePath -Recurse -Force
         Write-Host "Successfully deleted profile at: $ProfilePath"
     } catch {
-        # Output an error message if the deletion fails
         Write-Host "Error deleting profile at: $ProfilePath. Error: $_"
+    }
+}
+
+# Function to convert SID to username
+function Convert-SIDToUsername {
+    param (
+        [string]$SID
+    )
+    try {
+        $objSID = New-Object System.Security.Principal.SecurityIdentifier($SID)
+        $objUser = $objSID.Translate([System.Security.Principal.NTAccount])
+        return $objUser.Value
+    } catch {
+        return $null
+    }
+}
+
+# Function to get profile size
+function Get-ProfileSize {
+    param (
+        [string]$ProfilePath
+    )
+    try {
+        $size = (Get-ChildItem -Path $ProfilePath -Recurse -ErrorAction SilentlyContinue | Measure-Object -Property Length -Sum -ErrorAction SilentlyContinue).Sum
+        return [math]::Round($size / 1GB, 2) # Convert to GB
+    } catch {
+        return $null
     }
 }
 
@@ -59,7 +83,6 @@ $LoggedOnUserPaths = Get-CimInstance Win32_Process -Filter "name like 'explorer.
         }
     } | Where-Object { $_ } | Select-Object -Unique
 
-
 $InitialDiskSpace = Get-DiskSpace
 Write-Host "Initial Disk Space: Total: $($InitialDiskSpace.TotalSizeGB) GB, Used: $($InitialDiskSpace.UsedSpaceGB) GB, Free: $($InitialDiskSpace.FreeSpaceGB) GB"
     
@@ -74,11 +97,9 @@ $ComputerProfiles | ForEach-Object {
 
     if(-not ($ProfileName -eq 'SystemProfile' -or $ProfileName -eq 'LocalService' -or $ProfileName -eq 'NetworkService' -or $ProfileName -like '*Service')){
         # Calculate LastLogOff time
-        $NTLogoffEpoch = $null
         $LastLogOff = $null
-        if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
-            [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
-            $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
+        if($profileInfo.lastUseTime){
+            $LastLogOff = [datetime]::FromFileTime($profileInfo.lastUseTime)
         }
 
         # Display profile name and last logoff time
@@ -91,24 +112,24 @@ $ComputerProfiles | ForEach-Object {
 }
 
 # Check for Orphaned Registry Entries
+Write-Host "`nOrphaned Profile Registry Entries Found:"
 foreach ($Profile in $ComputerProfiles) {
     $profileInfo = Get-ItemProperty "$ProfilePath\$($Profile.PSChildName)"
     $ProfileFolderPath = $profileInfo.ProfileImagePath
+    $ProfileName = Convert-SIDToUsername $Profile.PSChildName
 
-    # Check if the profile folder exists
-    if (-not (Test-Path -Path $ProfileFolderPath)) {
-        Write-Host "Profile folder for $($profileInfo.PSChildName) does not exist. Cleaning up registry entry."
+    if ($ProfileName -and -not (Test-Path -Path $ProfileFolderPath)) {
+        Write-Host "`tProfile: $ProfileName (Registry Entry: $($Profile.PSChildName))"
         
         if (-not $ReadOnlyMode) {
             try {
-                # Remove the orphaned registry entry
                 Remove-Item "$ProfilePath\$($Profile.PSChildName)" -Force
-                Write-Host "Removed registry entry for $($profileInfo.PSChildName)"
+                Write-Host "Removed registry entry for $ProfileName"
             } catch {
-                Write-Host "Error removing registry entry for $($profileInfo.PSChildName): $_"
+                Write-Host "Error removing registry entry for ${ProfileName}: $_"
             }
         } else {
-            Write-Host "Registry entry for $($profileInfo.PSChildName) would be removed in non-read-only mode."
+            Write-Host "Registry entry for $ProfileName would be removed in non-read-only mode."
         }
     }
 }
@@ -131,18 +152,15 @@ $ComputerProfiles | ForEach-Object {
     }
 
     # Calculate LastLogOff time and logoff age
-    $NTLogoffEpoch = $null
     $LastLogOff = $null
     if($profileInfo.LocalProfileUnloadTimeHigh -and $profileInfo.LocalProfileUnloadTimeLow){
         [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     } else {
-        # Fallback to profile folder's last modified date
         try {
             $LastLogOff = (Get-Item -Path $ProfileFolderPath -Force).LastWriteTime
         } catch {
             Write-Host "Error accessing profile folder for ${ProfileName}: $_"
-
             $LastLogOff = $null
         }
     }
@@ -151,8 +169,12 @@ $ComputerProfiles | ForEach-Object {
         $LogoffAgeDays = ($CurrentDate - $LastLogOff).Days
 
         if($LogoffAgeDays -gt $Age){
-            $ProfilesToDelete += $ProfileFolderPath
-            Write-Host "  Profile $ProfileName marked for deletion: Age is $LogoffAgeDays days"
+            $ProfileSize = Get-ProfileSize -ProfilePath $ProfileFolderPath
+            $ProfilesToDelete += @{
+                Path = $ProfileFolderPath
+                SizeGB = $ProfileSize
+            }
+            Write-Host "  Profile $ProfileName marked for deletion: Age is $LogoffAgeDays days (Size: $ProfileSize GB)"
         } else {
             Write-Host "  Profile $ProfileName not deleted: Age is $LogoffAgeDays days"
         }
@@ -164,12 +186,12 @@ Write-Host ""
 # Delete the profiles marked for deletion
 if (-not $ReadOnlyMode) {
     foreach ($Profile in $ProfilesToDelete) {
-        Write-Host "Deleting profile: $Profile"
-        Remove-UserProfile -ProfilePath $Profile
+        Write-Host "Deleting profile: $($Profile.Path) ($($Profile.SizeGB) GB)"
+        Remove-UserProfile -ProfilePath $Profile.Path
     }
 } else {
     foreach ($Profile in $ProfilesToDelete) {
-        Write-Host "Profile would be deleted in non-read-only mode: $Profile"
+        Write-Host "Profile would be deleted in non-read-only mode: $($Profile.Path) ($($Profile.SizeGB) GB)"
     }
 }
 
@@ -187,8 +209,6 @@ if ($ReadOnlyMode) {
     Write-Host "Estimated space to recover: $SpaceToRecoverGB GB"
 }
 
-
-
 if (-not $ReadOnlyMode) {
     $InitialFreeSpace = (Get-DiskSpace).FreeSpaceGB
     foreach ($Profile in $ProfilesToDelete) {
@@ -199,7 +219,6 @@ if (-not $ReadOnlyMode) {
     $SpaceRecovered = [math]::Round($FinalFreeSpace - $InitialFreeSpace, 2)
     Write-Host "Actual space recovered: $SpaceRecovered GB"
 }
-
 
 if ($ProfilesToDelete.Count -eq 0) {
     Write-Host "`nNo profiles were deleted.`n"
