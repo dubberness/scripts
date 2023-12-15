@@ -114,11 +114,11 @@ $ComputerProfiles | ForEach-Object {
         [long]$NTLogoffEpoch = "0x{0:X}{1:X}" -f $profileInfo.LocalProfileUnloadTimeHigh, $profileInfo.LocalProfileUnloadTimeLow
         $LastLogOff = ([System.DateTimeOffset]::FromFileTime($NTLogoffEpoch)).DateTime
     } else {
-        # Fallback to NTUSER.DAT modification date
-        $ntuserPath = Join-Path -Path $ProfileFolderPath -ChildPath "NTUSER.DAT"
-        if(Test-Path -Path $ntuserPath){
-            $LastLogOff = (Get-Item -Path $ntuserPath).LastWriteTime
-        } else {
+        # Fallback to profile folder's last modified date
+        try {
+            $LastLogOff = (Get-Item -Path $ProfileFolderPath -Force).LastWriteTime
+        } catch {
+            Write-Host "Error accessing profile folder for $ProfileName: $_"
             $LastLogOff = $null
         }
     }
