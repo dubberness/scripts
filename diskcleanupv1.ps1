@@ -14,11 +14,12 @@ try {
 function Get-DiskSpace {
     $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq "C:\" } # Assuming C: is the target drive
     [PSCustomObject]@{
-        TotalSizeGB = [math]::Round($drive.Used + $drive.Free, 2)
-        UsedSpaceGB = [math]::Round($drive.Used, 2)
-        FreeSpaceGB = [math]::Round($drive.Free, 2)
+        TotalSizeGB = [math]::Round(($drive.Used + $drive.Free) / 1GB, 2)
+        UsedSpaceGB = [math]::Round($drive.Used / 1GB, 2)
+        FreeSpaceGB = [math]::Round($drive.Free / 1GB, 2)
     }
 }
+
 
 # Function to safely delete a user profile
 function Remove-UserProfile {
