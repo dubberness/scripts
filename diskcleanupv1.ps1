@@ -62,7 +62,7 @@ $LoggedOnUserPaths = Get-CimInstance Win32_Process -Filter "name like 'explorer.
 $InitialDiskSpace = Get-DiskSpace
 Write-Host "Initial Disk Space: Total: $($InitialDiskSpace.TotalSizeGB) GB, Used: $($InitialDiskSpace.UsedSpaceGB) GB, Free: $($InitialDiskSpace.FreeSpaceGB) GB"
     
-    # Start of profile analysis
+# Start of profile analysis
 Write-Host "Scanning for Profiles...`n"
 
 # List all non-system profiles
@@ -143,10 +143,16 @@ if (-not $ReadOnlyMode) {
 if ($ReadOnlyMode) {
     $TotalSpaceToRecover = 0
     foreach ($Profile in $ProfilesToDelete) {
-        $TotalSpaceToRecover += (Get-Item -Path $Profile -Recurse -Force | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum
+        try {
+            $ProfileSize = (Get-ChildItem -Path $Profile -Recurse -Force -ErrorAction Stop | Measure-Object -Property Length -Sum).Sum
+            $TotalSpaceToRecover += $ProfileSize
+        } catch {
+            Write-Host "Error calculating size for $Profile: $_"
+        }
     }
     Write-Host "Estimated space to recover: $([math]::Round($TotalSpaceToRecover / 1GB, 2)) GB"
 }
+
 
 if (-not $ReadOnlyMode) {
     $InitialFreeSpace = (Get-DiskSpace).FreeSpaceGB
