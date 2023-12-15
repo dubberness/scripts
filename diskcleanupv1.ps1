@@ -74,6 +74,7 @@ $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 $ComputerProfiles = Get-ChildItem "$ProfilePath"
 $CurrentDate = Get-Date
 $RemovedRegistryEntries = @()
+$OrphanedProfileFound = $false
 
 # Get the profile path for logged-on users
 $LoggedOnUserPaths = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | 
@@ -112,29 +113,42 @@ $ComputerProfiles | ForEach-Object {
     }
 }
 
-# Check for Orphaned Registry Entries
-Write-Host "`nOrphaned Profile Registry Entries Found:"
+# First pass to check if any orphaned profiles exist
 foreach ($Profile in $ComputerProfiles) {
-    $profileInfo = Get-ItemProperty "$ProfilePath\$($Profile.PSChildName)"
-    $ProfileFolderPath = $profileInfo.ProfileImagePath
-    $ProfileName = Convert-SIDToUsername $Profile.PSChildName
+    $profileInfo = Get-ItemProperty -Path "$ProfilePath\$($Profile.PSChildName)" -ErrorAction SilentlyContinue
+    if (-not $profileInfo -or -not (Test-Path -Path $profileInfo.ProfileImagePath)) {
+        $OrphanedProfileFound = $true
+        break
+    }
+}
 
-    if ($ProfileName -and -not (Test-Path -Path $ProfileFolderPath)) {
-        Write-Host "`tProfile: $ProfileName (Registry Entry: $($Profile.PSChildName))"
-        
-        if (-not $ReadOnlyMode) {
-            try {
-                Remove-Item "$ProfilePath\$($Profile.PSChildName)" -Force
-                Write-Host "Removed registry entry for $ProfileName"
-                $RemovedRegistryEntries += $Profile.PSChildName
-            } catch {
-                Write-Host "Error removing registry entry for ${ProfileName}: $_"
+# Display and process orphaned profile section only if an orphaned profile is found
+if ($OrphanedProfileFound) {
+    Write-Host "`nOrphaned Profile Registry Entries Found:"
+
+    foreach ($Profile in $ComputerProfiles) {
+        $profileInfo = Get-ItemProperty -Path "$ProfilePath\$($Profile.PSChildName)" -ErrorAction SilentlyContinue
+        $ProfileFolderPath = $profileInfo.ProfileImagePath
+        $ProfileName = Convert-SIDToUsername $Profile.PSChildName
+
+        if ($ProfileName -and -not (Test-Path -Path $ProfileFolderPath)) {
+            Write-Host "`tProfile: $ProfileName (Registry Entry: $($Profile.PSChildName))"
+            
+            if (-not $ReadOnlyMode) {
+                try {
+                    Remove-Item "$ProfilePath\$($Profile.PSChildName)" -Force
+                    Write-Host "Removed registry entry for $ProfileName"
+                    $RemovedRegistryEntries += $Profile.PSChildName
+                } catch {
+                    Write-Host "Error removing registry entry for ${ProfileName}: $_"
+                }
+            } else {
+                Write-Host "Registry entry for $ProfileName would be removed in non-read-only mode."
             }
-        } else {
-            Write-Host "Registry entry for $ProfileName would be removed in non-read-only mode."
         }
     }
 }
+
 
 # Separately list profiles that will be deleted
 Write-Host "`nInitiating Profile Deletion Process..."
