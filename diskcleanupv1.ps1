@@ -90,6 +90,29 @@ $ComputerProfiles | ForEach-Object {
     }
 }
 
+# Check for Orphaned Registry Entries
+foreach ($Profile in $ComputerProfiles) {
+    $profileInfo = Get-ItemProperty "$ProfilePath\$($Profile.PSChildName)"
+    $ProfileFolderPath = $profileInfo.ProfileImagePath
+
+    # Check if the profile folder exists
+    if (-not (Test-Path -Path $ProfileFolderPath)) {
+        Write-Host "Profile folder for $($profileInfo.PSChildName) does not exist. Cleaning up registry entry."
+        
+        if (-not $ReadOnlyMode) {
+            try {
+                # Remove the orphaned registry entry
+                Remove-Item "$ProfilePath\$($Profile.PSChildName)" -Force
+                Write-Host "Removed registry entry for $($profileInfo.PSChildName)"
+            } catch {
+                Write-Host "Error removing registry entry for $($profileInfo.PSChildName): $_"
+            }
+        } else {
+            Write-Host "Registry entry for $($profileInfo.PSChildName) would be removed in non-read-only mode."
+        }
+    }
+}
+
 # Separately list profiles that will be deleted
 Write-Host "`nInitiating Profile Deletion Process..."
 $ProfilesToDelete = @()
