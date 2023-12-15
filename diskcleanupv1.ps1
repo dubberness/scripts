@@ -73,6 +73,7 @@ if ($ReadOnlyMode) {
 $ProfilePath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 $ComputerProfiles = Get-ChildItem "$ProfilePath"
 $CurrentDate = Get-Date
+$RemovedRegistryEntries = @()
 
 # Get the profile path for logged-on users
 $LoggedOnUserPaths = Get-CimInstance Win32_Process -Filter "name like 'explorer.exe'" | 
@@ -125,6 +126,7 @@ foreach ($Profile in $ComputerProfiles) {
             try {
                 Remove-Item "$ProfilePath\$($Profile.PSChildName)" -Force
                 Write-Host "Removed registry entry for $ProfileName"
+                $RemovedRegistryEntries += $Profile.PSChildName
             } catch {
                 Write-Host "Error removing registry entry for ${ProfileName}: $_"
             }
@@ -139,6 +141,10 @@ Write-Host "`nInitiating Profile Deletion Process..."
 $ProfilesToDelete = @()
 
 $ComputerProfiles | ForEach-Object {
+    # Skip processing if the registry entry was removed
+    if ($_.PSChildName -in $RemovedRegistryEntries) {
+        return
+    }
     $profileInfo = Get-ItemProperty "$ProfilePath\$($_.PSChildName)"
     $ProfileName = [System.IO.Path]::GetFileName($profileInfo.ProfileImagePath)
     $ProfileFolderPath = $profileInfo.ProfileImagePath
