@@ -10,6 +10,33 @@ try {
     $ReadOnlyMode = $false
 }
 
+# Function to get Disk Space
+function Get-DiskSpace {
+    $drive = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -eq "C:\" } # Assuming C: is the target drive
+    [PSCustomObject]@{
+        TotalSizeGB = [math]::Round($drive.Used + $drive.Free, 2)
+        UsedSpaceGB = [math]::Round($drive.Used, 2)
+        FreeSpaceGB = [math]::Round($drive.Free, 2)
+    }
+}
+
+# Function to safely delete a user profile
+function Remove-UserProfile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProfilePath
+    )
+
+    try {
+        # Attempt to remove the user profile
+        Remove-Item -Path $ProfilePath -Recurse -Force
+        Write-Host "Successfully deleted profile at: $ProfilePath"
+    } catch {
+        # Output an error message if the deletion fails
+        Write-Host "Error deleting profile at: $ProfilePath. Error: $_"
+    }
+}
+
 # Welcome the user
 Write-Host "`nHello friend! Welcome to Ben's disk cleanup script :)`n"
 
@@ -32,7 +59,10 @@ $LoggedOnUserPaths = Get-CimInstance Win32_Process -Filter "name like 'explorer.
     } | Where-Object { $_ } | Select-Object -Unique
 
 
-# Start of profile analysis
+$InitialDiskSpace = Get-DiskSpace
+Write-Host "Initial Disk Space: Total: $($InitialDiskSpace.TotalSizeGB) GB, Used: $($InitialDiskSpace.UsedSpaceGB) GB, Free: $($InitialDiskSpace.FreeSpaceGB) GB"
+    
+    # Start of profile analysis
 Write-Host "Scanning for Profiles...`n"
 
 # List all non-system profiles
@@ -56,23 +86,6 @@ $ComputerProfiles | ForEach-Object {
         } else {
             Write-Host "  Profile: $ProfileName (Last Logoff: Unknown)"
         }
-    }
-}
-
-# Function to safely delete a user profile
-function Remove-UserProfile {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$ProfilePath
-    )
-
-    try {
-        # Attempt to remove the user profile
-        Remove-Item -Path $ProfilePath -Recurse -Force
-        Write-Host "Successfully deleted profile at: $ProfilePath"
-    } catch {
-        # Output an error message if the deletion fails
-        Write-Host "Error deleting profile at: $ProfilePath. Error: $_"
     }
 }
 
@@ -126,6 +139,26 @@ if (-not $ReadOnlyMode) {
         Write-Host "Profile would be deleted in non-read-only mode: $Profile"
     }
 }
+
+if ($ReadOnlyMode) {
+    $TotalSpaceToRecover = 0
+    foreach ($Profile in $ProfilesToDelete) {
+        $TotalSpaceToRecover += (Get-Item -Path $Profile -Recurse -Force | Measure-Object -Property Length -Sum -ErrorAction Stop).Sum
+    }
+    Write-Host "Estimated space to recover: $([math]::Round($TotalSpaceToRecover / 1GB, 2)) GB"
+}
+
+if (-not $ReadOnlyMode) {
+    $InitialFreeSpace = (Get-DiskSpace).FreeSpaceGB
+    foreach ($Profile in $ProfilesToDelete) {
+        Write-Host "Deleting profile: $Profile"
+        Remove-UserProfile -ProfilePath $Profile
+    }
+    $FinalFreeSpace = (Get-DiskSpace).FreeSpaceGB
+    $SpaceRecovered = [math]::Round($FinalFreeSpace - $InitialFreeSpace, 2)
+    Write-Host "Actual space recovered: $SpaceRecovered GB"
+}
+
 
 if ($ProfilesToDelete.Count -eq 0) {
     Write-Host "`nNo profiles were deleted.`n"
