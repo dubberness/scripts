@@ -118,7 +118,8 @@ $ComputerProfiles | ForEach-Object {
         try {
             $LastLogOff = (Get-Item -Path $ProfileFolderPath -Force).LastWriteTime
         } catch {
-            Write-Host "Error accessing profile folder for $ProfileName: $_"
+            Write-Host "Error accessing profile folder for ${ProfileName}: $_"
+
             $LastLogOff = $null
         }
     }
