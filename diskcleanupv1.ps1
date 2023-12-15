@@ -147,11 +147,13 @@ if ($ReadOnlyMode) {
             $ProfileSize = (Get-ChildItem -Path $Profile -Recurse -Force -ErrorAction Stop | Measure-Object -Property Length -Sum).Sum
             $TotalSpaceToRecover += $ProfileSize
         } catch {
-            Write-Host "Error calculating size for $Profile: $_"
+            Write-Host "Error calculating size for ${Profile}: $_"
         }
     }
-    Write-Host "Estimated space to recover: $([math]::Round($TotalSpaceToRecover / 1GB, 2)) GB"
+    $SpaceToRecoverGB = [math]::Round($TotalSpaceToRecover / 1GB, 2) # Convert bytes to GB
+    Write-Host "Estimated space to recover: $SpaceToRecoverGB GB"
 }
+
 
 
 if (-not $ReadOnlyMode) {
