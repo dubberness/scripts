@@ -1,4 +1,5 @@
 $driverArchive = "z99286L1b.zip" #Name of .zip uploaded via RMM
+$destinationPath = "C:\temp\printer"
 $printerHostAddress = "10.0.0.151"
 $printerName = "Downstairs Printer"
 $driverPath = "$destinationPath\z99286L1b\disk1\oemsetup.inf" #Location of the .inf file
