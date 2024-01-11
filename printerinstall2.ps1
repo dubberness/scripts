@@ -13,7 +13,7 @@ Try {
     Write-Host "Starting printer installation..."
 
     # Extracting Printer Driver
-    Expand-Archive $driverArchive -DestinationPath "C:\temp\printer" -Force
+    Expand-Archive $driverArchive -DestinationPath $destinationPath -Force
     Write-Host "Extracting Printer Driver: Success"
 
     # Installing Printer Driver
