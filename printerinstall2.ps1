@@ -25,6 +25,7 @@ Try {
     Write-Host "Adding Printer Driver: Success"
 
     # Adding Printer Port
+    $printerPortName = "$printerName Port"
     Add-PrinterPort -Name "$printerName Port" -PrinterHostAddress $printerHostAddress
     Write-Host "Adding Printer Port: Success"
 
